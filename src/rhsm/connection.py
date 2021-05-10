@@ -739,9 +739,9 @@ class BaseRestLib(object):
                 self._update_smoothed_response_time(ts_end - ts_start)
 
                 result = {
-                     "content": response.read().decode('utf-8'),
-                     "status": response.status,
-                     "headers": dict(response.getheaders())
+                    "content": response.read().decode('utf-8'),
+                    "status": response.status,
+                    "headers": dict(response.getheaders())
                 }
                 if response.status == 200:
                     self.is_consumer_cert_key_valid = True
@@ -1072,10 +1072,10 @@ class UEPConnection(BaseConnection):
         )
 
     def registerConsumer(self, name="unknown", type="system", facts={},
-            owner=None, environment=None, keys=None,
-            installed_products=None, uuid=None, hypervisor_id=None,
-            content_tags=None, role=None, addons=None, service_level=None, usage=None,
-            jwt_token=None):
+                         owner=None, environment=None, keys=None,
+                         installed_products=None, uuid=None, hypervisor_id=None,
+                         content_tags=None, role=None, addons=None, service_level=None, usage=None,
+                         jwt_token=None):
         """
         Creates a consumer on candlepin server
         """
@@ -1180,9 +1180,9 @@ class UEPConnection(BaseConnection):
         return self.updateConsumer(consumer_uuid, facts=facts)
 
     def updateConsumer(self, uuid, facts=None, installed_products=None,
-            guest_uuids=None, service_level=None, release=None,
-            autoheal=None, hypervisor_id=None, content_tags=None, role=None, addons=None,
-            usage=None):
+                       guest_uuids=None, service_level=None, release=None,
+                       autoheal=None, hypervisor_id=None, content_tags=None, role=None, addons=None,
+                       usage=None):
         """
         Update a consumer on the server.
 
@@ -1312,7 +1312,7 @@ class UEPConnection(BaseConnection):
         method = '/consumers/%s/compliance' % self.sanitize(uuid)
         if on_date:
             method = "%s?on_date=%s" % (method,
-                    self.sanitize(on_date.isoformat(), plus=True))
+                                        self.sanitize(on_date.isoformat(), plus=True))
         return self.conn.request_get(method)
 
     def getSyspurposeCompliance(self, uuid, on_date=None):
@@ -1459,7 +1459,7 @@ class UEPConnection(BaseConnection):
         # add the optional date to the url
         if entitle_date:
             method = "%s?entitle_date=%s" % (method,
-                    self.sanitize(entitle_date.isoformat(), plus=True))
+                                             self.sanitize(entitle_date.isoformat(), plus=True))
 
         return self.conn.request_post(method)
 
@@ -1476,7 +1476,7 @@ class UEPConnection(BaseConnection):
             method = "/consumers/%s/entitlements/dry-run" % self.sanitize(consumer_uuid)
         else:
             method = "/consumers/%s/entitlements/dry-run?service_level=%s" % \
-                    (self.sanitize(consumer_uuid), self.sanitize(service_level))
+                     (self.sanitize(consumer_uuid), self.sanitize(service_level))
         return self.conn.request_get(method)
 
     def unbindBySerial(self, consumerId, serial):
@@ -1496,7 +1496,7 @@ class UEPConnection(BaseConnection):
         # add the optional date to the url
         if checkin_date:
             method = "%s?checkin_date=%s" % (method,
-                    self.sanitize(checkin_date.isoformat(), plus=True))
+                                             self.sanitize(checkin_date.isoformat(), plus=True))
 
         return self.conn.request_put(method)
 
@@ -1608,7 +1608,7 @@ class UEPConnection(BaseConnection):
         """
         if name and not owner_key:
             raise Exception("Must specify owner key to query environment "
-                    "by name")
+                            "by name")
 
         query_param = urlencode({"name": name})
         url = "/owners/%s/environments?%s" % (self.sanitize(owner_key), query_param)

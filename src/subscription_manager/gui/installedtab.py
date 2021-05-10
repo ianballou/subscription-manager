@@ -182,7 +182,7 @@ class InstalledProductsTab(widgets.SubscriptionManagerTab):
                 entry['expiration_date'] = end
 
                 contract_ids, sub_names = self._calc_subs_providing(
-                        product_id, compliant_range)
+                    product_id, compliant_range)
                 contract = friendly_join(contract_ids)
                 num_of_contracts = len(contract_ids)
 
@@ -320,13 +320,13 @@ class InstalledProductsTab(widgets.SubscriptionManagerTab):
             if len(list(self.backend.cs.installed_products.keys())) == 0:
                 # No product certs installed, thus no compliant until date:
                 self.subscription_status_label.set_text(
-                        # I18N: Please add newlines if translation is longer:
-                        _("No installed products detected."))
+                    # I18N: Please add newlines if translation is longer:
+                    _("No installed products detected."))
             elif self.backend.cs.compliant_until:
                 self.subscription_status_label.set_markup(
-                        # I18N: Please add newlines if translation is longer:
-                        _("System is properly subscribed through %s.") %
-                        managerlib.format_date(self.backend.cs.compliant_until))
+                    # I18N: Please add newlines if translation is longer:
+                    _("System is properly subscribed through %s.") %
+                    managerlib.format_date(self.backend.cs.compliant_until))
             else:
                 log.warn("Server did not provide a compliant until date.")
                 self.subscription_status_label.set_text(
@@ -334,19 +334,19 @@ class InstalledProductsTab(widgets.SubscriptionManagerTab):
         elif self.backend.cs.system_status == 'partial':
             self._set_status_icons(PARTIAL_STATUS)
             self.subscription_status_label.set_markup(
-                    # I18N: Please add newlines if translation is longer:
-                    _("This system does not match subscription limits."))
+                # I18N: Please add newlines if translation is longer:
+                _("This system does not match subscription limits."))
         elif self.backend.cs.system_status == 'invalid':
             self._set_status_icons(INVALID_STATUS)
             if warn_count > 1:
                 self.subscription_status_label.set_markup(
-                        # I18N: Please add newlines if translation is longer:
-                        _("%s installed products do not have valid subscriptions.")
-                        % warn_count)
+                    # I18N: Please add newlines if translation is longer:
+                    _("%s installed products do not have valid subscriptions.")
+                    % warn_count)
             else:
                 self.subscription_status_label.set_markup(
-                        # I18N: Please add newlines if translation is longer:
-                        _("1 installed product does not have a valid subscription."))
+                    # I18N: Please add newlines if translation is longer:
+                    _("1 installed product does not have a valid subscription."))
         elif self.backend.cs.system_status == 'unknown':
             self._set_status_icons(UNKNOWN_STATUS)
             self.subscription_status_label.set_text(

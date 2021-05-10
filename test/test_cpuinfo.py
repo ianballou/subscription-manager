@@ -45,9 +45,9 @@ class BaseCpuInfo(fixture.SubManFixture):
 
 class TestX86_64CpuInfo(BaseCpuInfo):
     expected = {'x86_64-dell-e4310-1socket-2core-4cpu': {'cpu_count': 4,
-                                      'model': '37'},
+                                                         'model': '37'},
                 'x86_64-dell-t7600-2sockets-6core-24cpu': {'cpu_count': 24,
-                                            'model': '45'},
+                                                           'model': '45'},
                 'x86_64-4socket-8core-64cpu': {'cpu_count': 64},
                 'armv7-samsung-1socket-2core-2cpu': {}}
     cpuinfo_class = cpuinfo.X86_64CpuInfo
@@ -91,7 +91,7 @@ class TestPpc64leCpuInfo(BaseCpuInfo):
                  'platform': 'pSeries',
                  'model': 'IBM,8247-22L',
                  'machine': 'CHRP IBM,8247-22L'}
-              }
+               }
 
     def test_ppc64le_power8_16cpu_lpar(self):
         self._test('ppc64le-power8-16cpu-lpar')
