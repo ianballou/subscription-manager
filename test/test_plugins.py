@@ -788,7 +788,7 @@ class TestPluginManagerReporting(unittest.TestCase):
         self.assertEqual(10, len(self.manager.get_slots()))
 
 
-#functional
+# functional
 class TestPluginManagerRun(unittest.TestCase):
     def setUp(self):
         self.module_dir = os.path.join(os.path.dirname(__file__), "plugins")

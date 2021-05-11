@@ -71,7 +71,7 @@ class MessageWindow(ga_GObject.GObject):
         self.dialog.set_icon_name('subscription-manager')
 
         self.dialog.set_modal(True)
-        #this seems spurious, but without it, a ref to this obj gets "lost"
+        # this seems spurious, but without it, a ref to this obj gets "lost"
         ga_GObject.add_emission_hook(self, 'response', self.noop_hook)
 
         self.dialog.connect("response", self._on_response_event)

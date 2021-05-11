@@ -862,7 +862,7 @@ class TestProductManager(SubManFixture):
         self.assertFalse(cert.delete.called)
         self.assertFalse(self.prod_db_mock.delete.called)
 
-#TODO: test update_installed with a installed product cert, enabled, but not active
+# TODO: test update_installed with a installed product cert, enabled, but not active
 #       because the packages were installed from anaconda
 
     def test_update_removed_no_packages_no_repos_no_active_no_certs(self):

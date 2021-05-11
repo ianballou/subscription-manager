@@ -165,7 +165,7 @@ def parse_url(local_server_entry,
     if not good_url:
         good_url = "https://%s" % local_server_entry
 
-    #FIXME: need a try except here? docs
+    # FIXME: need a try except here? docs
     # don't seem to indicate any expected exceptions
     result = six.moves.urllib.parse.urlparse(good_url)
     username = default_username

@@ -15,7 +15,7 @@ from __future__ import print_function, division, absolute_import
 import glob
 import polib
 
-#FIXME
+# FIXME
 PO_PATH = "po/"
 
 po_files = glob.glob("%s/*.po" % PO_PATH)

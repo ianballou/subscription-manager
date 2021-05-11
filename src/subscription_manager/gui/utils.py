@@ -122,7 +122,7 @@ def handle_gui_exception(e, msg, parent, format_msg=True, log_msg=None):
         else:
             show_error_window(mapped_message, parent)
     else:
-        #catch-all, try to interpolate and if it doesn't work out, just display the message
+        # catch-all, try to interpolate and if it doesn't work out, just display the message
         try:
             interpolated_str = msg % e
             show_error_window(interpolated_str, parent=parent)
@@ -151,7 +151,7 @@ def format_mapped_message(e, msg, mapped_message, format_msg=True):
 
 def format_interpolated_message(e, msg, mapped_message, format_msg=True):
     message = None
-    #catch-all, try to interpolate and if it doesn't work out, just display the message
+    # catch-all, try to interpolate and if it doesn't work out, just display the message
     try:
         interpolated_str = msg % e
         message = interpolated_str

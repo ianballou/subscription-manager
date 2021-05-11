@@ -94,7 +94,7 @@ class ImportSubDialog(object):
                 try:
                     extractor = ImportFileExtractor(cert_file)
 
-                    #Verify the entitlement data.
+                    # Verify the entitlement data.
                     if not extractor.verify_valid_entitlement():
                         log.error("Invalid X509 entitlement certificate.")
                         log.error("Error parsing manually imported entitlement "
@@ -135,7 +135,7 @@ class ImportSubDialog(object):
                 msg += "\n" + "\n".join(good_certs)
             show_error_window(msg, parent=self._parent)
         else:
-            #if we get to this point, the import was successful
+            # if we get to this point, the import was successful
             messageWindow.InfoDialog(_("Certificate import was successful."),
                                      parent=self._parent)
         self.dialog.hide()
