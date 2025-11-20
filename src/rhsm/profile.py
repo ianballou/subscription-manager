@@ -430,8 +430,12 @@ def _get_immutable_packages() -> set:
         return immutable_packages
 
     try:
-        # Create a transaction set with the immutable database
-        ts = rpm.TransactionSet("/", ostree_dbpath)
+        # Save current DBPATH environment variable
+        old_dbpath = os.environ.get('DBPATH')
+
+        # Set DBPATH to point to immutable database and create transaction set
+        os.environ['DBPATH'] = ostree_dbpath
+        ts = rpm.TransactionSet()
         ts.setVSFlags(-1)
         installed = ts.dbMatch()
 
@@ -452,6 +456,12 @@ def _get_immutable_packages() -> set:
 
     except Exception as e:
         log.debug(f"Failed to read immutable packages: {e}")
+    finally:
+        # Restore original DBPATH environment variable
+        if old_dbpath is not None:
+            os.environ['DBPATH'] = old_dbpath
+        elif 'DBPATH' in os.environ:
+            del os.environ['DBPATH']
 
     return immutable_packages
 
