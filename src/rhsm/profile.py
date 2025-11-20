@@ -437,9 +437,17 @@ def _get_immutable_packages() -> set:
         os.environ['DBPATH'] = ostree_dbpath
         ts = rpm.TransactionSet()
         ts.setVSFlags(-1)
-        installed = ts.dbMatch()
 
-        for h in installed:
+        # Consume all packages immediately to avoid environment variable issues
+        package_headers = list(ts.dbMatch())
+
+        # Restore environment before processing to avoid affecting subsequent operations
+        if old_dbpath is not None:
+            os.environ['DBPATH'] = old_dbpath
+        elif 'DBPATH' in os.environ:
+            del os.environ['DBPATH']
+
+        for h in package_headers:
             if h["name"] == "gpg-pubkey":
                 continue
 
@@ -456,12 +464,14 @@ def _get_immutable_packages() -> set:
 
     except Exception as e:
         log.debug(f"Failed to read immutable packages: {e}")
-    finally:
-        # Restore original DBPATH environment variable
-        if old_dbpath is not None:
-            os.environ['DBPATH'] = old_dbpath
-        elif 'DBPATH' in os.environ:
-            del os.environ['DBPATH']
+        # Ensure environment is restored even on error
+        try:
+            if old_dbpath is not None:
+                os.environ['DBPATH'] = old_dbpath
+            elif 'DBPATH' in os.environ:
+                del os.environ['DBPATH']
+        except:
+            pass
 
     return immutable_packages
 
