@@ -37,6 +37,15 @@ try:
 except ImportError:
     yum = None
 
+try:
+    import gi
+    gi.require_version("OSTree", "1.0")
+    from gi.repository import OSTree
+    ostree_available = True
+except (ImportError, ValueError):
+    OSTree = None
+    ostree_available = False
+
 use_zypper: bool = importlib.util.find_spec("zypp_plugin") is not None
 
 if use_zypper:
@@ -304,7 +313,7 @@ class Package:
     """
 
     def __init__(
-        self, name: str, version: str, release: str, arch: str, epoch: int = 0, vendor: str = None
+        self, name: str, version: str, release: str, arch: str, epoch: int = 0, vendor: str = None, persistence: str = None
     ) -> None:
         self.name: str = name
         self.version: str = version
@@ -312,10 +321,11 @@ class Package:
         self.arch: str = arch
         self.epoch: int = epoch
         self.vendor: str = vendor
+        self.persistence: str = persistence
 
     def to_dict(self) -> dict:
         """Returns a dict representation of this package info."""
-        return {
+        result = {
             "name": self._normalize_string(self.name),
             "version": self._normalize_string(self.version),
             "release": self._normalize_string(self.release),
@@ -323,6 +333,10 @@ class Package:
             "epoch": self._normalize_string(self.epoch),
             "vendor": self._normalize_string(self.vendor),  # bz1519512 handle vendors that aren't utf-8
         }
+        # Only include persistence field if it's set (for ostree-based systems)
+        if self.persistence is not None:
+            result["persistence"] = self.persistence
+        return result
 
     def __eq__(self, other: "Package") -> bool:
         """
@@ -338,6 +352,7 @@ class Package:
             and self.arch == other.arch
             and self.epoch == other.epoch
             and self._normalize_string(self.vendor) == self._normalize_string(other.vendor)
+            and self.persistence == other.persistence
         ):
             return True
 
@@ -352,6 +367,93 @@ class Package:
         if type(value) is bytes:
             return value.decode("utf-8", "replace")
         return value
+
+
+def _is_ostree_system() -> bool:
+    """
+    Check if the current system is running on ostree (bootc/silverblue/coreos).
+    """
+    if not ostree_available:
+        return False
+
+    try:
+        sysroot = OSTree.Sysroot.new_default()
+        sysroot.load(None)
+        booted_deployment = sysroot.require_booted_deployment()
+        return booted_deployment is not None
+    except Exception as e:
+        log.debug(f"Failed to detect ostree system: {e}")
+        return False
+
+
+def _get_ostree_deployment_dbpath() -> str:
+    """
+    Get the path to the immutable RPM database in the ostree deployment.
+    Returns None if not on ostree or if unable to determine the path.
+    """
+    if not ostree_available:
+        return None
+
+    try:
+        sysroot = OSTree.Sysroot.new_default()
+        sysroot.load(None)
+
+        booted_deployment = sysroot.require_booted_deployment()
+        if booted_deployment is None:
+            return None
+
+        installroot = sysroot.get_deployment_directory(booted_deployment).get_path()
+
+        # Get the RPM database path using rpm.expandMacro
+        dbpath = rpm.expandMacro('%{_dbpath}')
+
+        ostree_dbpath = os.path.join(installroot, dbpath.lstrip("/"))
+
+        log.debug(f"OSTree deployment dbpath: {ostree_dbpath}")
+        return ostree_dbpath
+
+    except Exception as e:
+        log.debug(f"Failed to get ostree deployment dbpath: {e}")
+        return None
+
+
+def _get_immutable_packages() -> set:
+    """
+    Get the set of packages from the immutable ostree deployment.
+    Returns a set of (name, version, release, arch, epoch) tuples.
+    """
+    immutable_packages = set()
+
+    ostree_dbpath = _get_ostree_deployment_dbpath()
+    if not ostree_dbpath or not os.path.exists(ostree_dbpath):
+        log.debug("No ostree deployment database path available")
+        return immutable_packages
+
+    try:
+        # Create a transaction set with the immutable database
+        ts = rpm.TransactionSet("/", ostree_dbpath)
+        ts.setVSFlags(-1)
+        installed = ts.dbMatch()
+
+        for h in installed:
+            if h["name"] == "gpg-pubkey":
+                continue
+
+            pkg_tuple = (
+                h["name"],
+                h["version"],
+                h["release"],
+                h["arch"],
+                h["epoch"] or 0
+            )
+            immutable_packages.add(pkg_tuple)
+
+        log.debug(f"Found {len(immutable_packages)} packages in immutable database")
+
+    except Exception as e:
+        log.debug(f"Failed to read immutable packages: {e}")
+
+    return immutable_packages
 
 
 class RPMProfile:
@@ -375,6 +477,7 @@ class RPMProfile:
                         arch=pkg_dict["arch"],
                         epoch=pkg_dict["epoch"],
                         vendor=pkg_dict["vendor"],
+                        persistence=pkg_dict.get("persistence"),  # Handle optional field
                     )
                 )
         else:
@@ -393,12 +496,36 @@ class RPMProfile:
         """
 
         pkg_list = []
+        immutable_packages = set()
+
+        # Check if we're on an ostree system and get immutable packages if so
+        is_ostree = _is_ostree_system()
+        if is_ostree:
+            immutable_packages = _get_immutable_packages()
+            log.debug(f"Running on ostree system with {len(immutable_packages)} immutable packages")
+
         for h in rpm_header_list:
             if h["name"] == "gpg-pubkey":
                 # dbMatch includes imported gpg keys as well
                 # skip these for now as there isn't compelling
                 # reason for server to know this info
                 continue
+
+            # Determine persistence for ostree systems
+            persistence = None
+            if is_ostree:
+                pkg_tuple = (
+                    h["name"],
+                    h["version"],
+                    h["release"],
+                    h["arch"],
+                    h["epoch"] or 0
+                )
+                if pkg_tuple in immutable_packages:
+                    persistence = "persistent"
+                else:
+                    persistence = "transient"
+
             pkg_list.append(
                 Package(
                     name=h["name"],
@@ -407,6 +534,7 @@ class RPMProfile:
                     arch=h["arch"],
                     epoch=h["epoch"] or 0,
                     vendor=h["vendor"] or None,
+                    persistence=persistence,
                 )
             )
         return pkg_list
