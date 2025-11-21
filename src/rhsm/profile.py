@@ -420,58 +420,104 @@ def _get_ostree_deployment_dbpath() -> str:
 def _get_immutable_packages() -> set:
     """
     Get the set of packages from the immutable ostree deployment.
+    For bootc systems, uses rpm-ostree to get the true base commit packages.
     Returns a set of (name, version, release, arch, epoch) tuples.
     """
     immutable_packages = set()
 
-    ostree_dbpath = _get_ostree_deployment_dbpath()
-    if not ostree_dbpath or not os.path.exists(ostree_dbpath):
-        log.debug("No ostree deployment database path available")
-        return immutable_packages
-
     try:
-        # Save current DBPATH environment variable
-        old_dbpath = os.environ.get('DBPATH')
+        import subprocess
+        import json
 
-        # Set DBPATH to point to immutable database and create transaction set
-        os.environ['DBPATH'] = ostree_dbpath
-        ts = rpm.TransactionSet()
-        ts.setVSFlags(-1)
+        # Get rpm-ostree status to find the base commit
+        result = subprocess.run(['rpm-ostree', 'status', '--json'],
+                              capture_output=True, text=True, check=True)
+        status = json.loads(result.stdout)
 
-        # Consume all packages immediately to avoid environment variable issues
-        package_headers = list(ts.dbMatch())
+        deployments = status.get('deployments', [])
+        if not deployments:
+            log.debug("No deployments found in rpm-ostree status")
+            return immutable_packages
 
-        # Restore environment before processing to avoid affecting subsequent operations
-        if old_dbpath is not None:
-            os.environ['DBPATH'] = old_dbpath
-        elif 'DBPATH' in os.environ:
-            del os.environ['DBPATH']
+        # Strategy: use the rollback deployment as the "base" reference
+        # or find a deployment that isn't unlocked transient
+        base_deployment = None
 
-        for h in package_headers:
-            if h["name"] == "gpg-pubkey":
+        for deployment in deployments:
+            unlocked = deployment.get('unlocked')
+            if unlocked != 'transient':  # Find non-transient deployment
+                base_deployment = deployment
+                break
+
+        # Fallback: use the second deployment (rollback) if first is transient
+        if not base_deployment and len(deployments) > 1:
+            base_deployment = deployments[1]
+
+        # Last resort: use the first deployment
+        if not base_deployment:
+            base_deployment = deployments[0]
+
+        base_checksum = base_deployment.get('checksum')
+        if not base_checksum:
+            log.debug("No base checksum found")
+            return immutable_packages
+
+        log.debug(f"Using base deployment checksum: {base_checksum[:10]} for immutable packages")
+
+        # Use rpm-ostree db list to get packages from the commit
+        result = subprocess.run(['rpm-ostree', 'db', 'list', base_checksum],
+                              capture_output=True, text=True, check=True)
+
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if not line or line.startswith('ostree commit:'):
                 continue
 
-            pkg_tuple = (
-                h["name"],
-                h["version"],
-                h["release"],
-                h["arch"],
-                h["epoch"] or 0
-            )
-            immutable_packages.add(pkg_tuple)
+            try:
+                # Parse rpm-ostree db list output format
+                # Expected format: package-version-release.arch
+                # Some lines might have extra info, take the first part
+                parts = line.split()
+                if not parts:
+                    continue
 
-        log.debug(f"Found {len(immutable_packages)} packages in immutable database")
+                nvra = parts[0]
 
+                # Parse NVRA: name-version-release.arch
+                if '.' not in nvra:
+                    continue
+
+                name_vr, arch = nvra.rsplit('.', 1)
+
+                # Split name-version-release
+                vr_parts = name_vr.split('-')
+                if len(vr_parts) < 3:
+                    continue
+
+                # The last two parts are version and release
+                # Everything before that is the package name (which might contain dashes)
+                name = '-'.join(vr_parts[:-2])
+                version = vr_parts[-2]
+                release = vr_parts[-1]
+
+                # Default epoch to 0 since rpm-ostree db list doesn't include it
+                epoch = 0
+
+                pkg_tuple = (name, version, release, arch, epoch)
+                immutable_packages.add(pkg_tuple)
+
+            except (ValueError, IndexError) as e:
+                log.debug(f"Failed to parse package line '{line}': {e}")
+                continue
+
+        log.debug(f"Found {len(immutable_packages)} packages in base ostree commit {base_checksum[:10]}")
+
+    except subprocess.CalledProcessError as e:
+        log.debug(f"rpm-ostree command failed: {e}")
+    except ImportError:
+        log.debug("subprocess module not available")
     except Exception as e:
-        log.debug(f"Failed to read immutable packages: {e}")
-        # Ensure environment is restored even on error
-        try:
-            if old_dbpath is not None:
-                os.environ['DBPATH'] = old_dbpath
-            elif 'DBPATH' in os.environ:
-                del os.environ['DBPATH']
-        except:
-            pass
+        log.debug(f"Failed to get immutable packages via rpm-ostree: {e}")
 
     return immutable_packages
 
